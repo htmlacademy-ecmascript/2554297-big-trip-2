@@ -1,3 +1,4 @@
+
 import MainPresenter from './presenter/main-presenter';
 import EventModel from './model/event-model';
 import DestinationModel from './model/destination-model';
