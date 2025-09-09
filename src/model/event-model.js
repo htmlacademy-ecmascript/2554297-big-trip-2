@@ -1,4 +1,4 @@
-import { EventsMock } from '../mock/event-mock.js';
+import { EventsMock } from '../mock/eventsMocks.js';
 
 export default class EventModel {
   events = [... EventsMock];

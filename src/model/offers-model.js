@@ -1,4 +1,4 @@
-import {offersMock} from '../mock/offers-mock.js';
+import {offersMock} from '../mock/offersMocks.js';
 
 const FIRST_ELEMENT = 0;
 export default class OffersModel {

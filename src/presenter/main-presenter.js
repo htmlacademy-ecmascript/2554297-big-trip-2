@@ -5,8 +5,7 @@ import RoutePointView from '../view/route-point-view';
 import RoutePointListView from '../view/route-point-list-view';
 import SortingView from '../view/sorting-view';
 
-
-export default class Presenter {
+export default class MainPresenter {
   RoutePointListComponent = new RoutePointListView();
 
   constructor(DestinationModel, EventModel, OfferModel) {
