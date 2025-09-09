@@ -1,91 +1,122 @@
-import { render, RenderPosition } from '../render';
-import FiltersView from '../view/filters-view';
-import SortingView from '../view/sorting-view';
-import RoutePointView from '../view/route-point-view';
-import RoutePointListView from '../view/route-point-list-view';
-import EditFormView from '../view/edit-form-view';
-import ListEmptyView from '../view/list-empty-view';
+import { render, remove } from '../framework/render.js';
+import FiltersView from '../view/filters-view.js';
+import SortingView from '../view/sorting-view.js';
+import RoutePointListView from '../view/route-point-list-view.js';
+import ListEmptyView from '../view/list-empty-view.js';
+import { generateFilter } from '../mock/filtersMocks.js';
+import RoutePointPresenter from './route-point-presenter.js';
+import {SortType} from '../consts';
 
 export default class MainPresenter {
-  #routePointListComponent = new RoutePointListView();
-  #routePointsComponents = new Map();
+  #RoutePointListComponent = new RoutePointListView();
+  #sortingComponent = null;
+  #pointsModel = null;
+  #offersModel = null;
+  #destinationsModel = null;
+  #tripEvents = null;
+  #tripControlFilters = null;
+  #points = null;
+  #destinations = null;
+  #offers = null;
+  #pointPresenters = new Map();
+  #currentSortType = SortType.DAY;
 
-  constructor(destinationModel, eventModel, offerModel) {
-    this.tripEvents = document.querySelector('.trip-events');
-    this.tripControlFilters = document.querySelector('.trip-controls__filters');
-    this.destinationModel = destinationModel;
-    this.eventModel = eventModel;
-    this.offerModel = offerModel;
+  constructor({ pointModel, offerModel, destinationModel }) {
+    this.#pointsModel = pointModel;
+    this.#offersModel = offerModel;
+    this.#destinationsModel = destinationModel;
+    this.#tripEvents = document.querySelector('.trip-events');
+    this.#tripControlFilters = document.querySelector('.trip-controls__filters');
   }
 
   init() {
-    const events = this.eventModel.getEvents();
+    this.#points = this.#pointsModel.points;
+    this.#offers = this.#offersModel.offers;
+    this.#destinations = this.#destinationsModel.destinations;
 
-    render(new FiltersView(this.#generateFilters(events)), this.tripControlFilters);
-    render(new SortingView(), this.tripEvents);
+    const filters = generateFilter(this.#points) || [];
 
-    if (events.length === 0) {
-      render(new ListEmptyView(), this.tripEvents);
+    if (this.#points.length > 0) {
+      render(new FiltersView({ filters }), this.#tripControlFilters);
+      this.#renderSort();
+      render(this.#RoutePointListComponent, this.#tripEvents);
+      this.#renderPoints();
+    } else {
+      render(new ListEmptyView(), this.#tripEvents);
+    }
+  }
+
+  #renderSort() {
+    this.#sortingComponent = new SortingView({
+      currentSortType: this.#currentSortType,
+      onSortTypeChange: this.#handleSortTypeChange.bind(this)
+    });
+    render(this.#sortingComponent, this.#tripEvents, 'beforebegin');
+  }
+
+  #handleSortTypeChange(sortType) {
+    if (this.#currentSortType === sortType) {
       return;
     }
 
-    render(this.#routePointListComponent, this.tripEvents);
-    for (let i = 0; i < Math.min(3, events.length); i++) {
-      this.#renderRoutePoint(events[i]);
+    this.#currentSortType = sortType;
+    this.#clearPoints();
+    this.#renderSort();
+    this.#renderPoints();
+  }
+
+  #sortPoints(points) {
+    const sortedPoints = [...points];
+
+    switch (this.#currentSortType) {
+      case SortType.DAY:
+        return sortedPoints.sort((a, b) => new Date(a.dateFrom) - new Date(b.dateFrom) || a.id - b.id);
+      case SortType.TIME:
+        return sortedPoints.sort((a, b) => {
+          const durationA = new Date(a.dateTo) - new Date(a.dateFrom);
+          const durationB = new Date(b.dateTo) - new Date(b.dateFrom);
+          return durationB - durationA || a.id - b.id;
+        });
+      case SortType.PRICE:
+        return sortedPoints.sort((a, b) => b.basePrice - a.basePrice || a.id - b.id);
+      default:
+        return sortedPoints;
     }
-
-    document.addEventListener('keydown', this.#handleEscapeKey);
   }
 
-  #generateFilters(events) {
-    return [
-      { name: 'everything', isDisabled: events.length === 0 },
-      { name: 'future', isDisabled: !events.some((event) => event.dateFrom > Date.now()) },
-      { name: 'past', isDisabled: !events.some((event) => event.dateTo < Date.now()) },
-      { name: 'present', isDisabled: !events.some((event) => event.dateTo === Date.now()) },
-    ];
+  #renderPoints() {
+    const sortedPoints = this.#sortPoints(this.#points);
+    sortedPoints.forEach((point) => {
+      this.#renderPoint(point);
+    });
   }
 
-  #renderRoutePoint(event) {
-    const destination = this.destinationModel.getDestinationById(event.destination);
-    const eventOffers = this.offerModel.getOffersByType(event.type).filter((offer) =>
-      event.offers.includes(offer.id)
-    );
-
-    const routePointComponent = new RoutePointView(event, destination, eventOffers);
-    const editFormComponent = new EditFormView(event, this.destinationModel, this.offerModel);
-
-    routePointComponent.setEditClickHandler(() =>
-      this.#replaceRoutePointToEditForm(routePointComponent, editFormComponent)
-    );
-    editFormComponent.setFormSubmitHandler(() =>
-      this.#replaceEditFormToRoutePoint(routePointComponent, editFormComponent)
-    );
-    editFormComponent.setRollupClickHandler(() =>
-      this.#replaceEditFormToRoutePoint(routePointComponent, editFormComponent)
-    );
-
-    this.#routePointsComponents.set(routePointComponent, editFormComponent);
-    render(routePointComponent, this.#routePointListComponent.element, RenderPosition.BEFOREEND);
-    routePointComponent.addEventListeners();
+  #clearPoints() {
+    this.#pointPresenters.forEach((presenter) => presenter.destroy());
+    this.#pointPresenters.clear();
+    remove(this.#sortingComponent);
   }
 
-  #replaceRoutePointToEditForm(routePointComponent, editFormComponent) {
-    this.#routePointListComponent.element.replaceChild(editFormComponent.element, routePointComponent.element);
+  #renderPoint(point) {
+    const routePointPresenter = new RoutePointPresenter({
+      destinations: this.#destinations,
+      offers: this.#offers,
+      pointsListComponent: this.#RoutePointListComponent,
+      changeDataOnFavorite: this.#handleDataChange.bind(this),
+      changeMode: this.#handleModeChange.bind(this)
+    });
+    routePointPresenter.init(point);
+    this.#pointPresenters.set(point.id, routePointPresenter);
   }
 
-  #replaceEditFormToRoutePoint(routePointComponent, editFormComponent) {
-    this.#routePointListComponent.element.replaceChild(routePointComponent.element, editFormComponent.element);
+  #handleDataChange(updatedPoint) {
+    this.#points = this.#points.map((point) => point.id === updatedPoint.id ? updatedPoint : point);
+    this.#clearPoints();
+    this.#renderSort();
+    this.#renderPoints();
   }
 
-  #handleEscapeKey = (evt) => {
-    if (evt.key === 'Escape') {
-      for (const [routePointComponent, editFormComponent] of this.#routePointsComponents) {
-        if (this.#routePointListComponent.element.contains(editFormComponent.element)) {
-          this.#replaceEditFormToRoutePoint(routePointComponent, editFormComponent);
-          break;
-        }
-      }
-    }
-  };
+  #handleModeChange() {
+    this.#pointPresenters.forEach((presenter) => presenter.resetView());
+  }
 }
