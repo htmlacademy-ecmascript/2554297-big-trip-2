@@ -1,13 +1,41 @@
-import {destinationsMock} from '../mock/destinationsMocks.js';
+import Observable from '../framework/observable.js';
+import {UpdateType} from '../consts.js';
 
-export default class DestinationModel {
-  destinations = [... destinationsMock];
+export default class DestinationModel extends Observable {
+  #destinations = [];
+  #destinationApiService = null;
+  #isLoading = true;
+  #isLoadingFailed = false;
 
-  getDestinations() {
-    return this.destinations;
+  constructor(destinationApiService) {
+    super();
+    this.#destinationApiService = destinationApiService;
+  }
+
+  async init() {
+    try {
+      this.#destinations = await this.#destinationApiService.destinations;
+    } catch (e) {
+      this.#destinations = [];
+      this.#isLoadingFailed = true;
+    }
+    this.#isLoading = false;
+    this._notify(UpdateType.INIT, { isLoadingFailed: this.#isLoadingFailed });
+  }
+
+  get destinations() {
+    return [...this.#destinations];
   }
 
   getDestinationById(id) {
-    return this.destinations.find((item) => item.id === id);
+    return this.#destinations.find((item) => item.id === id) || { name: '', description: '', pictures: [] };
+  }
+
+  get isLoading() {
+    return this.#isLoading;
+  }
+
+  get isLoadingFailed() {
+    return this.#isLoadingFailed;
   }
 }

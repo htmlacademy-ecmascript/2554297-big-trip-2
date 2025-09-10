@@ -1,5 +1,5 @@
-const path = require ('path');
-const CpyPlugin = require('copy-webpack-plugin');
+const path = require('path');
+const CopyPlugin = require('copy-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 
 module.exports = {
@@ -11,19 +11,19 @@ module.exports = {
   },
   devtool: 'source-map',
   plugins: [
-    new CpyPlugin({
+    new HtmlPlugin({
+      template: 'public/index.html',
+    }),
+    new CopyPlugin({
       patterns: [
         {
           from: 'public',
           globOptions: {
             ignore: ['**/index.html'],
-         },
+          },
         },
       ],
     }),
-    new HtmlPlugin({
-      template: 'public/index.html',
-    })
   ],
   module: {
     rules: [
@@ -33,10 +33,14 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env']
+            presets: ['@babel/preset-env'],
           },
         },
       },
-    ]
-  }
-}
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader'],
+      },
+    ],
+  },
+};

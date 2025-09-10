@@ -1,20 +1,46 @@
-import {offersMock} from '../mock/offersMocks.js';
+import Observable from '../framework/observable.js';
+import { UpdateType } from '../consts.js';
 
-const FIRST_ELEMENT = 0;
-export default class OffersModel {
-  offers = [... offersMock];
+export default class OfferModel extends Observable {
+  #offers = [];
+  #offersApiService = null;
+  #isLoading = true;
+  #isLoadingFailed = false;
 
-  getOffers() {
-    return this.offers;
+  constructor(offersApiService) {
+    super();
+    this.#offersApiService = offersApiService;
   }
 
-  getOffersById(type, id) {
-    const offers = this.offers.filter((offer) => offer.type === type)[FIRST_ELEMENT].offers.find((item) => item.id === id);
-    return offers ? offers.offers : [];
+  async init() {
+    try {
+      this.#offers = await this.#offersApiService.offers;
+    } catch (e) {
+      this.#offers = [];
+      this.#isLoadingFailed = true;
+    }
+    this.#isLoading = false;
+    this._notify(UpdateType.INIT, { isLoadingFailed: this.#isLoadingFailed });
   }
 
-  getOffersByType(type) {
-    const typeOffers = this.offers.find((offer) => offer.type === type);
-    return typeOffers ? typeOffers.offers : [];
+  get isLoading() {
+    return this.#isLoading;
+  }
+
+  get isLoadingFailed() {
+    return this.#isLoadingFailed;
+  }
+
+  get offers() {
+    return this.#offers;
+  }
+
+  getOfferByType(type) {
+    return this.#offers.find((offer) => offer.type === type) || { type, offers: [] };
+  }
+
+  getOfferById(type, id) {
+    const typeOffers = this.getOfferByType(type);
+    return typeOffers.offers.find((offer) => offer.id === id) || null;
   }
 }
