@@ -1,123 +1,161 @@
-import { render, replace, remove } from '../framework/render.js';
-import RoutePointView from '../view/route-point-view.js';
-import EditFormView from '../view/edit-form-view.js';
-import { isEscapeKey } from '../utils.js';
-import { Mode, UpdateType, UserAction } from '../consts.js';
+// import { render, replace, remove } from '../framework/render';
+// import EditFormView from '../view/edit-form-view';
+// import PointView from '../view/point-view';
+// import { UserAction, UpdateType, Mode } from '../consts.js';
+// import { isDatesEqual, isEscapeKey } from '../utils.js';
 
-export default class RoutePointPresenter {
-  #destinations = null;
-  #offers = null;
-  #point = null;
-  #pointItem = null;
-  #editFormItem = null;
-  #pointsListComponent = null;
-  #handleDataChange = null;
-  #handleModeChange = null;
-  #mode = Mode.DEFAULT;
+// export default class PointPresenter {
+//   #pointListContainer;
+//   #pointModel;
+//   #offerModel;
+//   #destinationModel;
+//   #pointComponent = null;
+//   #pointEditComponent = null;
+//   #onPointChange;
+//   #onModeChange;
+//   #mode = Mode.DEFAULT;
 
-  #escKeyHandler = (event) => {
-    if (isEscapeKey(event)) {
-      event.preventDefault();
-      this.#replaceEditFormToPoint();
-      document.removeEventListener('keydown', this.#escKeyHandler);
-    }
-  };
+//   constructor(pointListContainer, offerModel, destinationModel, onPointChange, onModeChange) {
+//     this.#pointListContainer = pointListContainer;
+//     this.#offerModel = offerModel;
+//     this.#destinationModel = destinationModel;
+//     this.#onPointChange = onPointChange;
+//     this.#onModeChange = onModeChange;
+//   }
 
-  constructor({ destinations, offers, pointsListComponent, changeDataOnFavorite, changeMode }) {
-    this.#destinations = destinations;
-    this.#offers = offers;
-    this.#pointsListComponent = pointsListComponent;
-    this.#handleDataChange = changeDataOnFavorite;
-    this.#handleModeChange = changeMode;
-  }
+//   init(pointData) {
+//     this.#pointModel = pointData;
+//     const prevPointComponent = this.#pointComponent;
+//     const prevEditPointComponent = this.#pointEditComponent;
 
-  init(routePoint) {
-    this.#point = routePoint;
-    const prevPointComponent = this.#pointItem;
-    const prevEditFormComponent = this.#editFormItem;
+//     this.#pointComponent = new PointView(
+//       this.#pointModel,
+//       this.#offerModel,
+//       this.#destinationModel,
+//       this.#onPointButtonClick,
+//       this.#onFavoriteButtonClick
+//     );
 
-    this.#pointItem = new RoutePointView({
-      point: this.#point,
-      destinations: this.#destinations,
-      onRollButtonClick: () => {
-        this.#replacePointToEditForm();
-      },
-      onFavoriteClick: () => {
-        this.#addToFavorite();
-      }
-    });
+//     this.#pointEditComponent = new EditFormView(
+//       this.#pointModel,
+//       this.#offerModel,
+//       this.#destinationModel,
+//       this.#onFormSubmit,
+//       this.#onDeleteClick,
+//       this.#onEditButtonClick
+//     );
 
-    this.#editFormItem = new EditFormView({
-      point: this.#point,
-      offers: this.#offers,
-      destinations: this.#destinations,
-      onFormSubmit: this.#editFormSubmitHandler,
-      onFormReset: this.#editFormResetHandler,
-      onDeleteClick: this.#deleteClickHandler
-    });
+//     if (prevPointComponent === null || prevEditPointComponent === null) {
+//       render(this.#pointComponent, this.#pointListContainer);
+//       return;
+//     }
 
-    if (prevPointComponent === null || prevEditFormComponent === null) {
-      if (this.#pointsListComponent.element) {
-        render(this.#pointItem, this.#pointsListComponent.element);
-      }
-      return;
-    }
+//     if (this.#mode === Mode.DEFAULT) {
+//       replace(this.#pointComponent, prevPointComponent);
+//     }
+//     if (this.#mode === Mode.EDITING) {
+//       replace(this.#pointEditComponent, prevEditPointComponent);
+//       this.#mode = Mode.DEFAULT;
+//     }
+//     remove(prevPointComponent);
+//     remove(prevEditPointComponent);
+//   }
 
-    if (this.#mode === Mode.DEFAULT) {
-      replace(this.#pointItem, prevPointComponent);
-    }
+//   destroy() {
+//     remove(this.#pointComponent);
+//     remove(this.#pointEditComponent);
+//   }
 
-    if (this.#mode === Mode.EDITING) {
-      replace(this.#editFormItem, prevEditFormComponent);
-    }
-  }
+//   resetView() {
+//     if (this.#mode !== Mode.DEFAULT) {
+//       this.#replaceFormToCard();
+//     }
+//   }
 
-  destroy() {
-    remove(this.#pointItem);
-    remove(this.#editFormItem);
-    document.removeEventListener('keydown', this.#escKeyHandler);
-  }
+//   setSaving() {
+//     if (this.#mode === Mode.EDITING) {
+//       this.#pointEditComponent.updateElement({
+//         isDisabled: true,
+//         isSaving: true,
+//       });
+//     }
+//   }
 
-  resetView() {
-    if (this.#mode === Mode.EDITING) {
-      this.#replaceEditFormToPoint();
-    }
-  }
+//   setDeleting() {
+//     if (this.#mode === Mode.EDITING) {
+//       this.#pointEditComponent.updateElement({
+//         isDisabled: true,
+//         isDeleting: true,
+//       });
+//     }
+//   }
 
-  #replacePointToEditForm() {
-    this.#handleModeChange();
-    replace(this.#editFormItem, this.#pointItem);
-    document.addEventListener('keydown', this.#escKeyHandler);
-    this.#mode = Mode.EDITING;
-  }
+//   setAborting() {
+//     if (this.#mode === Mode.DEFAULT) {
+//       this.#pointComponent.shake();
+//       return;
+//     }
+//     const resetFormState = () => {
+//       if (this.#mode === Mode.EDITING) {
+//         this.#pointEditComponent.updateElement({
+//           isDisabled: false,
+//           isSaving: false,
+//           isDeleting: false,
+//         });
+//       }
+//     };
+//     this.#pointEditComponent.shake(resetFormState);
+//   }
 
-  #replaceEditFormToPoint() {
-    replace(this.#pointItem, this.#editFormItem);
-    document.removeEventListener('keydown', this.#escKeyHandler);
-    this.#mode = Mode.DEFAULT;
-  }
+//   #replaceCardToForm() {
+//     replace(this.#pointEditComponent, this.#pointComponent);
+//     document.addEventListener('keydown', this.#escKeyDownHandler);
+//     this.#onModeChange();
+//     this.#mode = Mode.EDITING;
+//   }
 
-  #addToFavorite() {
-    this.#handleDataChange(UserAction.UPDATE_POINT, UpdateType.PATCH, {
-      ...this.#point,
-      isFavorite: !this.#point.isFavorite
-    });
-  }
+//   #replaceFormToCard() {
+//     replace(this.#pointComponent, this.#pointEditComponent);
+//     document.removeEventListener('keydown', this.#escKeyDownHandler);
+//     this.#mode = Mode.DEFAULT;
+//   }
 
-  #editFormSubmitHandler = (point) => {
-    this.#handleDataChange(UserAction.UPDATE_POINT, UpdateType.MAJOR, point);
-    this.#replaceEditFormToPoint();
-    document.removeEventListener('keydown', this.#escKeyHandler);
-  };
+//   #escKeyDownHandler = (evt) => {
+//     if (isEscapeKey(evt)) {
+//       evt.preventDefault();
+//       this.#replaceFormToCard();
+//     }
+//   };
 
-  #editFormResetHandler = () => {
-    this.#editFormItem.reset(this.#point);
-    this.#replaceEditFormToPoint();
-    document.removeEventListener('keydown', this.#escKeyHandler);
-  };
+//   #onPointButtonClick = () => {
+//     this.#replaceCardToForm();
+//   };
 
-  #deleteClickHandler = () => {
-    this.#handleDataChange(UserAction.DELETE_POINT, UpdateType.MAJOR, this.#point);
-    document.removeEventListener('keydown', this.#escKeyHandler);
-  };
-}
+//   #onEditButtonClick = () => {
+//     this.#replaceFormToCard();
+//   };
+
+//   #onFavoriteButtonClick = () => {
+//     this.#onPointChange(
+//       UserAction.UPDATE_POINT,
+//       UpdateType.MINOR,
+//       { ...this.#pointModel, isFavorite: !this.#pointModel.isFavorite });
+//   };
+
+//   #onFormSubmit = (evt, editPoint) => {
+//     evt.preventDefault();
+//     const isMinorUpdate = !isDatesEqual(this.#pointModel.dateFrom, editPoint.dateTo);
+//     this.#onPointChange(
+//       UserAction.UPDATE_POINT,
+//       isMinorUpdate ? UpdateType.MINOR : UpdateType.PATCH,
+//       editPoint);
+//   };
+
+//   #onDeleteClick = (point) => {
+//     this.#onPointChange(
+//       UserAction.DELETE_POINT,
+//       UpdateType.MINOR,
+//       point,
+//     );
+//   };
+// }
